@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Prompt Logger</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2rem;
+      font-family: Arial, sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+        /* Fixed top control bar */
+      #top-bar {
+      background-color: #bcbcbc;
+      color: rgb(47, 21, 21);
+      padding: 1rem;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      z-index: 1000;
+    }
+
+    /* Scrollable content area */
+    #content {
+      margin-top: 60px; /* space for the fixed top bar */
+      padding: 1rem;
+      overflow-y: auto;
+      flex-grow: 1;
+      height: calc(100vh - 60px); /* full height minus top bar */
+      background-color: #f8f8f8;
+    }
+
+    textarea {
+      width: 100%;
+      height: 100px;
+    }
+    button {
+      margin-top: 1rem;
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+    }
+    #messages {
+      margin-top: 2rem;
+      border-top: 1px solid #ccc;
+      padding-top: 1rem;
+    }
+    #messages > div {
+      margin-bottom: 0.5rem;
+      padding: 0.5rem;
+      background-color: #f0f0f0;
+      border-radius: 4px;
+    }
+  </style>
+
+<body>
+
+  <div id="top-bar">
+    <strong>C++ chatbot status: <span id="LLMStatus"></span></strong>
+    <input type="text" id="modelPathInput" placeholder="Enter model path" />
+    <button onclick="loadModel()">Load Model</button>
+  </div>
+  
+  
+  <div id="content">
+
+  <div id="messages"></div>
+
+  <textarea id="prompt"></textarea>
+  <button onclick="submitPrompt()">prompt</button>
+</div>
+
+
+<script>
+
+let promptHistory = [];
+
+function loadModel() {
+  const modelPath = document.getElementById("modelPathInput").value;
+  console.log("Loading model:", modelPath);
+  // Add your actual model-loading logic here
+  const encodedModel = encodeURIComponent(modelPath);
+  callAPI("/loadModel?q=" + encodedModel, () => {});
+}
+
+
+
+function submitPrompt() {
+  const prompt = document.getElementById("prompt").value;
+  // addMessageToUI("user: "+prompt);
+  const encodedPrompt = encodeURIComponent(prompt);
+  //callAPI("/echo?q=" + encodedPrompt, addMessage);
+  callAPI("/prompt?q=" + encodedPrompt, () => {});
+  
+}
+
+
+function clearMessageUI(){
+  msg_div = document.getElementById("messages");
+  msg_div.innerHTML = "";
+  // msg_div.
+}
+
+function addMessageToUI(msg){
+  if (msg.length == 0) return; 
+  msg_div = document.getElementById("messages");
+  let msg_sub = document.createElement("div");
+  msg_sub.textContent = msg;
+  msg_div.appendChild(msg_sub);
+  // console.log(msg_div);
+  scrollToBottom();
+  // msg_div.innerText = msg;  
+}
+
+// function scrollToBottom() {
+//     window.scrollTo({
+//       top: document.body.scrollHeight,
+//       behavior: 'smooth'
+//     });
+// }
+
+function scrollToBottom() {
+  const contentDiv = document.getElementById("content");
+  contentDiv.scrollTo({
+    top: contentDiv.scrollHeight,
+    behavior: 'smooth'
+  });
+}
+
+
+// the buttons call this function to send messages
+// to the API server hosted in the PluginProcessor - direct comms to the pluginprocessor :) 
+function callAPI(endpoint, response_callback){
+  fetch(endpoint)
+    .then(response => {
+      return response.text(); // or .json() depending on your API
+    })
+    .then(data => {
+      response_callback(data);
+    })
+    .catch(error => {
+      console.log("Problem calling API");
+      console.log(error);
+    });
+}
+
+
+function retrieveAndDisplayPromptHistory()
+{
+  fetch("/allPrompts")
+    .then(response => response.json())
+    .then(data => {
+      console.log("REceived prompts from API: " + data.length);
+      if (data.length != promptHistory.length){// simplistic check for change in prompts
+          clearMessageUI();
+          data.forEach(prompt => {
+            addMessageToUI("user: " + prompt);
+          });
+          promptHistory = data; 
+      }
+    })
+    .catch(error => {
+      console.error("Error fetching prompt history:", error);
+    });
+}
+
+function retrieveAndDisplayLLMstatus()
+{
+  fetch("/LLMStatus")
+    .then(response => response.text())
+    .then(status_str => {
+      console.log("Received LLMstatus from API: " + status_str);
+      status_div = document.getElementById("LLMStatus");
+      status_div.innerHTML = status_str;
+    })
+    .catch(error => {
+      console.error("Error fetching LLMStatus:", error);
+    });
+}
+
+// the cpp back end will call eval on this one to 
+// send us messages if they are temporary, i.e. not stateful
+function handleCppMessage(data){
+  // Optional: send dummy result back so C++ doesn't assert
+  if (window.__JUCE__?.emitResult)
+    window.__JUCE__.emitResult("ok");
+} 
+
+function startUpdatePoller(intervalMs = 5000) {
+  function poll() {
+    retrieveAndDisplayPromptHistory();
+    retrieveAndDisplayLLMstatus();
+    setTimeout(poll, intervalMs); // schedule next call
+  }
+  poll(); // start polling
+}
+
+// Fetch and display all prompts on page load
+document.addEventListener("DOMContentLoaded", function() {
+  startUpdatePoller();
+});
+
+
+
+
+
+</script>
+
+</body>
+</html>
+

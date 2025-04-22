@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Prompt Logger</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2rem;
+    }
+    textarea {
+      width: 100%;
+      height: 100px;
+    }
+    button {
+      margin-top: 1rem;
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+    }
+    #messages {
+      margin-top: 2rem;
+      border-top: 1px solid #ccc;
+      padding-top: 1rem;
+    }
+    #messages > div {
+      margin-bottom: 0.5rem;
+      padding: 0.5rem;
+      background-color: #f0f0f0;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Prompt Logger</h1>
+
+  <textarea id="promptText" placeholder="Type something here..."></textarea>
+  <br>
+  <button id="promptBtn">Prompt</button>
+
+  <div id="messages"></div>
+
+  <script>
+    document.getElementById('promptBtn').addEventListener('click', function () {
+      submitPrompt();
+    });
+
+    function submitPrompt() {
+      const prompt = document.getElementById('promptText').value.trim();
+      if (prompt) {
+        const newDiv = document.createElement('div');
+        newDiv.textContent = prompt;
+        document.getElementById('messages').appendChild(newDiv);
+        document.getElementById('promptText').value = ''; // Clear the textarea
+      }
+
+     
+      const encodedPrompt = encodeURIComponent(prompt);
+
+      fetch("/prompt?q=" + encodedPrompt)
+        .then(response => {
+          console.log("Web UI: response from API");
+          return response.text(); // or .json() depending on your API
+        })
+        .then(data => {
+          console.log("Response data:", data);
+          // document.getElementById("messages").innerText = data;
+        })
+        .catch(error => {
+          console.log("Problem!");
+          console.log(error);
+        });
+    }
+
+  // the buttons call this function to send messages
+  // to the API server hosted in the PluginProcessor - direct comms to the pluginprocessor :) 
+  function callAPI(endpoint){
+    fetch("/" + endpoint)
+          .then(response => {
+            console.log("Web UI: response from API " + endpoint)
+            console.log(response.toString())
+          })
+          .catch(error => {
+              console.log("Problem!");
+              console.log(error);
+          })
+
+  }
+
+  </script>
+</body>
+</html>
